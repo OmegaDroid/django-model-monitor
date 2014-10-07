@@ -25,7 +25,22 @@ class MonitorInstanceCache():
         return {field.attname: getattr(instance, field.attname) for field in fields}
 
     def is_different(self, instance):
+        """
+        Checks if the instance is the same as the cache. Only monitored fields will be checked.
+
+        :param instance: The instance of the model to check against the cache
+        :return: True if the instance does not matches the cache, False otherwise
+        """
         return self._cache != MonitorInstanceCache._extract_cache(instance)
+
+    def revert_instance(self, instance):
+        """
+        Reverts the model instance to it's original loaded value. Only monitored fields will be reverted
+
+        :param instance:
+        """
+        for attr_name, value in self._cache.items():
+            setattr(instance, attr_name, value)
 
 
 def _on_init_cache_instance(sender, **kwargs):
@@ -49,6 +64,7 @@ def changed(*monitored_fields):
     def _decoration(fields, cls):
         cls._monitored_fields = fields
         cls.has_changed = lambda self: self._monitor_instance_cache.is_different(self)
+        cls.revert = lambda self: self._monitor_instance_cache.revert_instance(self)
 
         post_init.connect(
             _on_init_cache_instance,
