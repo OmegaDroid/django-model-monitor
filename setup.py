@@ -9,5 +9,6 @@ setup(
     license='MIT',
     author='Daniel Bate',
     author_email='',
-    description='App to monitor changes in models'
+    description='App to monitor changes in models',
+    requires=["django"],
 )
