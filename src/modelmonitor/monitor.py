@@ -37,10 +37,29 @@ class MonitorInstanceCache():
         """
         Reverts the model instance to it's original loaded value. Only monitored fields will be reverted
 
-        :param instance:
+        :param instance: The instance to revert back to the original values.
         """
         for attr_name, value in self._cache.items():
             setattr(instance, attr_name, value)
+
+    def get_changes(self, instance):
+        """
+        Gets all the monitored fields that have changed. Gives a dictionary of old and new values indexed against the
+        attribute name eg:
+
+        {
+            "field_1": {"old": 1, "new": 2},
+            "field_2": {"old": "foo", "new": "bar"}
+        }
+
+        :param instance: The instance of the model to check against the cache
+        :return: A dictionary of ald and new values for monitored fields that have changed.
+        """
+        new_values = MonitorInstanceCache._extract_cache(instance)
+        return {
+            field: {"new": new_values[field], "old": self._cache[field]}
+            for field in new_values if new_values[field] != self._cache[field]
+        }
 
 
 def _on_init_cache_instance(sender, **kwargs):
@@ -65,6 +84,7 @@ def changed(*monitored_fields):
         cls._monitored_fields = fields
         cls.has_changed = lambda self: self._monitor_instance_cache.is_different(self)
         cls.revert = lambda self: self._monitor_instance_cache.revert_instance(self)
+        cls.get_changes = lambda self: self._monitor_instance_cache.get_changes(self)
 
         post_init.connect(
             _on_init_cache_instance,
