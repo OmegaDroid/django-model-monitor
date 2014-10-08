@@ -1,5 +1,5 @@
 import inspect
-from django.db.models.signals import post_init
+from django.db.models.signals import post_init, post_save
 
 
 class MonitorInstanceCache():
@@ -62,6 +62,15 @@ class MonitorInstanceCache():
         }
 
 
+def _update_instance_cache(instance):
+    """
+    Updates the monitor cache of the model instance.
+
+    :param instance: the model instance to update
+    """
+    instance._monitor_instance_cache = MonitorInstanceCache(instance)
+
+
 def _on_init_cache_instance(sender, **kwargs):
     """
     Updates the monitor cache of the model instance. This is designed to be called on the post init signal of the
@@ -70,8 +79,18 @@ def _on_init_cache_instance(sender, **kwargs):
     :param sender: The class of the instance sending the signal
     :param kwargs: Keyword arguments sent by the signal (https://docs.djangoproject.com/en/1.7/ref/signals/#post-init)
     """
-    instance = kwargs["instance"]
-    instance._monitor_instance_cache = MonitorInstanceCache(instance)
+    _update_instance_cache(kwargs["instance"])
+
+
+def _on_monitored_model_saved_cache_is_updated(sender, **kwargs):
+    """
+    Updates the monitor cache of the model instance on save. This is designed to be called on the post save signal of
+    the instance
+
+    :param sender: The class of the instance sending the signal
+    :param kwargs: Keyword arguments sent by the signal (https://docs.djangoproject.com/en/1.7/ref/signals/#post-save)
+    """
+    _update_instance_cache(kwargs["instance"])
 
 
 def changed(*monitored_fields):
@@ -92,8 +111,16 @@ def changed(*monitored_fields):
             dispatch_uid="__{class_name}_changed_post_init_dispatcher__".format(class_name=cls.__name__)
         )
 
+        post_save.connect(
+            _on_monitored_model_saved_cache_is_updated,
+            sender=cls,
+            dispatch_uid="__{class_name}_saved_post_save_dispatcher__".format(class_name=cls.__name__)
+        )
+
         return cls
 
+    # this is some hacking to allow @monitor.changed to be used as the decorator rather then
+    # @monitor.changed()
     if len(monitored_fields) == 1 and inspect.isclass(monitored_fields[0]):
         return _decoration([], monitored_fields[0])
     else:
