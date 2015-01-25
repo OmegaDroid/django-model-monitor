@@ -3,4 +3,4 @@ python:
   - "3.4"
 install:
   - pip install -r requirements.pip
-script: cd src; manage.py test
+script: ./run_tests.sh
