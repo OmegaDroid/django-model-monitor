@@ -1,6 +1,9 @@
 django-model-monitor
 ====================
 
+[![Build Status](https://travis-ci.org/OmegaDroid/django-model-monitort.svg?branch=master)](https://travis-ci.org/OmegaDroid/django-model-monitor.svg?branch=master)
+
+
 App to monitor changes in models
 
 Usage
