@@ -1,4 +1,5 @@
 import inspect
+from django.db import models
 from django.db.models.signals import post_init, post_save
 
 
@@ -22,7 +23,7 @@ class MonitorInstanceCache():
             field for field in instance._meta.local_fields if not monitored_fields or field.attname in monitored_fields
         ]
 
-        return {field.attname: getattr(instance, field.attname) for field in fields}
+        return {field.attname: _process_field_value(type(field), getattr(instance, field.attname)) for field in fields}
 
     def is_different(self, instance):
         """
@@ -125,3 +126,46 @@ def changed(*monitored_fields):
         return _decoration([], monitored_fields[0])
     else:
         return lambda cls: _decoration(monitored_fields, cls)
+
+
+#
+# Functions for handling extracting cache values from mutable fields
+#
+
+# a dictionary of field value processors indexed against
+_field_value_processors = {}
+
+
+def register_value_processor(field_class, processor):
+    """
+    Registers a function for handling values from mutable fields
+
+    :param field_class: The class to register the processor for
+    :param processor:   The processor function, this should take the field value as its arguments and return the value to cache
+    """
+    _field_value_processors[field_class] = processor
+
+
+def _process_field_value(field_class, field_value):
+    """
+    Processes a model field and returns its cache value
+
+    :param field_class: The class of the field
+    :param field_value: The value of the field
+    :return: The cache value
+    """
+    if field_class in _field_value_processors:
+        return _field_value_processors[field_class](field_value)
+    return field_value
+
+
+def _file_field_value(field_value):
+    """
+    Processes the file object into the upload path
+
+    :param field_value: The value of the field to process
+    """
+    if field_value:
+        return field_value.path
+    return None
+register_value_processor(models.FileField, _file_field_value)
